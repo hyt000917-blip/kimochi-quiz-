@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>きもちクイズ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', sans-serif;
+         background: #fff9f0; min-height: 100vh; -webkit-user-select: none; user-select: none; }
+
+  .page { display: none; flex-direction: column; min-height: 100vh; }
+  .page.active { display: flex; }
+
+  /* === モード選択 === */
+  #pageTop { align-items: center; justify-content: center; gap: 24px; padding: 24px; }
+  #pageTop h1 { font-size: 2rem; color: #ff7043; text-align: center; }
+  .modeBtn { width: 100%; max-width: 340px; padding: 22px; border: none; border-radius: 24px;
+             font-size: 1.4rem; font-weight: bold; cursor: pointer;
+             box-shadow: 0 6px 0 rgba(0,0,0,.15); -webkit-tap-highlight-color: transparent; }
+  #btnTeacher { background: #42a5f5; color: #fff; }
+  #btnStudent  { background: #66bb6a; color: #fff; }
+
+  /* === ヘッダー === */
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+           background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+  header h2 { font-size: 1.2rem; flex: 1; }
+  .backBtn { background: #eee; border: none; border-radius: 12px; padding: 8px 14px;
+             font-size: 1rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+  /* === せんせいモード === */
+  #pageTeacher header { background: #e3f2fd; }
+  .teacherBody { padding: 16px; display: flex; flex-direction: column; gap: 16px;
+                 overflow-y: auto; flex: 1; }
+  .card { background: #fff; border-radius: 20px; padding: 16px;
+          box-shadow: 0 3px 10px rgba(0,0,0,.08); }
+  .card > label { font-size: 1rem; font-weight: bold; color: #555; display: block; margin-bottom: 8px; }
+
+  .imgUploadArea { width: 100%; height: 180px; border: 3px dashed #90caf9; border-radius: 16px;
+                   display: flex; flex-direction: column; align-items: center; justify-content: center;
+                   cursor: pointer; background: #f0f8ff; position: relative; overflow: hidden; }
+  .imgUploadArea img { width: 100%; height: 100%; object-fit: contain; }
+  .imgUploadArea span { font-size: 1rem; color: #90a4ae; margin-top: 8px; text-align:center; }
+  .imgUploadArea input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer;
+                                    -webkit-appearance: none; }
+
+  .choicesGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .choiceRow { display: flex; flex-direction: column; gap: 4px; }
+  .choiceRow small { font-size: .85rem; color: #888; }
+  .choiceRow input[type=text] { border: 2px solid #ddd; border-radius: 12px; padding: 10px;
+                                 font-size: 1rem; width: 100%; -webkit-appearance: none; }
+  .choiceRow input[type=text]:focus { outline: none; border-color: #42a5f5; }
+
+  .answerRadios { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .answerRadios label { display: flex; align-items: center; gap: 8px; font-size: 1rem;
+                         background: #f5f5f5; border-radius: 12px; padding: 10px; cursor: pointer; }
+  .answerRadios input { width: 20px; height: 20px; }
+
+  #saveBtn { background: #ff7043; color: #fff; border: none; border-radius: 20px; padding: 16px;
+             font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #e64a19;
+             -webkit-tap-highlight-color: transparent; }
+
+  /* === せいとモード === */
+  #pageStudent header { background: #e8f5e9; }
+  .studentBody { padding: 16px; display: flex; flex-direction: column; gap: 16px;
+                 flex: 1; overflow-y: auto; }
+
+  #sceneBox { width: 100%; background: #fff; border-radius: 20px; overflow: hidden;
+              box-shadow: 0 3px 10px rgba(0,0,0,.1); min-height: 180px;
+              display: flex; align-items: center; justify-content: center; }
+  #sceneBox img { width: 100%; max-height: 240px; object-fit: contain; }
+  #sceneNoImg { color: #bbb; font-size: 1rem; padding: 40px; text-align: center; }
+
+  #dropZone { min-height: 100px; border: 4px dashed #a5d6a7; border-radius: 20px;
+              background: #f1f8e9; display: flex; align-items: center; justify-content: center;
+              flex-wrap: wrap; gap: 10px; padding: 12px; transition: background .2s; }
+  #dropZone.over { background: #c8e6c9; border-color: #66bb6a; }
+  .dropLabel { color: #aaa; font-size: 1rem; pointer-events: none; text-align:center; }
+
+  #choicesArea { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .qCard { background: #fff; border-radius: 18px; padding: 14px 8px; text-align: center;
+           box-shadow: 0 4px 0 #ddd; cursor: grab; display: flex; flex-direction: column;
+           align-items: center; gap: 4px; -webkit-tap-highlight-color: transparent;
+           transition: opacity .2s, transform .1s; }
+  .qCard.dragging { opacity: .4; transform: scale(.95); }
+  .qCard .emoji { font-size: 2rem; pointer-events: none; }
+  .qCard .word  { font-size: 1.1rem; font-weight: bold; pointer-events: none; }
+
+  .droppedCard { background: #fff; border-radius: 16px; padding: 12px 16px; font-size: 1.1rem;
+                 font-weight: bold; box-shadow: 0 3px 0 #bbb; display: flex;
+                 align-items: center; gap: 6px; }
+
+  #checkBtn { background: #ffa726; color: #fff; border: none; border-radius: 20px; padding: 16px;
+              font-size: 1.3rem; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #e65100;
+              -webkit-tap-highlight-color: transparent; }
+
+  /* === フィードバック === */
+  #feedback { display: none; position: fixed; inset: 0; z-index: 200;
+              align-items: center; justify-content: center; flex-direction: column;
+              background: rgba(0,0,0,.5); }
+  #feedback.show { display: flex; }
+  #feedbackBox { background: #fff; border-radius: 28px; padding: 40px 32px; text-align: center;
+                 width: 88%; max-width: 360px; box-shadow: 0 12px 40px rgba(0,0,0,.2); }
+  #feedbackEmoji { font-size: 4rem; }
+  #feedbackMsg { font-size: 1.5rem; font-weight: bold; margin: 12px 0; }
+  #nextBtn { background: #42a5f5; color: #fff; border: none; border-radius: 16px;
+             padding: 14px 32px; font-size: 1.2rem; font-weight: bold; cursor: pointer;
+             -webkit-tap-highlight-color: transparent; }
+
+  #noQuizMsg { text-align: center; color: #bbb; padding: 40px 20px; font-size: 1.1rem; }
+  #quizContent { display: none; flex-direction: column; gap: 16px; }
+  #quizContent.show { display: flex; }
+</style>
+</head>
+<body>
+
+<!-- トップ -->
+<div id="pageTop" class="page active">
+  <h1>🌟 きもちクイズ 🌟</h1>
+  <button class="modeBtn" id="btnTeacher">
+    👩‍🏫 せんせいモード<br><small style="font-size:.8rem;font-weight:normal;">もんだいをつくる</small>
+  </button>
+  <button class="modeBtn" id="btnStudent">
+    🧒 せいとモード<br><small style="font-size:.8rem;font-weight:normal;">クイズをする</small>
+  </button>
+</div>
+
+<!-- せんせいモード -->
+<div id="pageTeacher" class="page">
+  <header>
+    <button class="backBtn" id="backFromTeacher">◀ もどる</button>
+    <h2>👩‍🏫 もんだいをつくる</h2>
+  </header>
+  <div class="teacherBody">
+    <div class="card">
+      <label>📷 ばめんのイラスト</label>
+      <div class="imgUploadArea" id="uploadArea">
+        <img id="previewImg" src="" alt="" style="display:none;">
+        <span id="uploadHint">ここをタップして<br>がぞうをえらぶ</span>
+        <input type="file" accept="image/*" id="imgInput">
+      </div>
+    </div>
+    <div class="card">
+      <label>💬 こたえのカード（4まい）</label>
+      <div class="choicesGrid">
+        <div class="choiceRow"><small>カード①</small><input type="text" id="c0" placeholder="たのしい"></div>
+        <div class="choiceRow"><small>カード②</small><input type="text" id="c1" placeholder="かなしい"></div>
+        <div class="choiceRow"><small>カード③</small><input type="text" id="c2" placeholder="おこっている"></div>
+        <div class="choiceRow"><small>カード④</small><input type="text" id="c3" placeholder="こわい"></div>
+      </div>
+    </div>
+    <div class="card">
+      <label>😊 えもじ（それぞれのカードに）</label>
+      <div class="choicesGrid">
+        <div class="choiceRow"><small>カード①</small><input type="text" id="e0" placeholder="😄"></div>
+        <div class="choiceRow"><small>カード②</small><input type="text" id="e1" placeholder="😢"></div>
+        <div class="choiceRow"><small>カード③</small><input type="text" id="e2" placeholder="😠"></div>
+        <div class="choiceRow"><small>カード④</small><input type="text" id="e3" placeholder="😱"></div>
+      </div>
+    </div>
+    <div class="card">
+      <label>⭐ せいかいはどれ？</label>
+      <div class="answerRadios">
+        <label><input type="radio" name="ans" value="0" checked> カード①</label>
+        <label><input type="radio" name="ans" value="1"> カード②</label>
+        <label><input type="radio" name="ans" value="2"> カード③</label>
+        <label><input type="radio" name="ans" value="3"> カード④</label>
+      </div>
+    </div>
+    <button id="saveBtn">💾 もんだいをほぞんする</button>
+  </div>
+</div>
+
+<!-- せいとモード -->
+<div id="pageStudent" class="page">
+  <header>
+    <button class="backBtn" id="backFromStudent">◀ もどる</button>
+    <h2>🧒 きもちクイズ</h2>
+  </header>
+  <div class="studentBody">
+    <div id="noQuizMsg">まだもんだいがありません。<br>せんせいにもんだいをつくってもらおう！</div>
+    <div id="quizContent">
+      <div id="sceneBox">
+        <img id="sceneImg" src="" alt="ばめん" style="display:none;">
+        <div id="sceneNoImg">イラストがありません</div>
+      </div>
+      <p style="font-size:1.1rem;font-weight:bold;text-align:center;">
+        👇 きもちのカードをここにドラッグしよう
+      </p>
+      <div id="dropZone">
+        <span class="dropLabel" id="dropLabel">ここにカードをおとそう</span>
+      </div>
+      <div id="choicesArea"></div>
+      <button id="checkBtn">✅ こたえる！</button>
+    </div>
+  </div>
+</div>
+
+<!-- フィードバック -->
+<div id="feedback">
+  <div id="feedbackBox">
+    <div id="feedbackEmoji"></div>
+    <div id="feedbackMsg"></div>
+    <button id="nextBtn">もういちど ▶</button>
+  </div>
+</div>
+
+<script>
+// ===== データ =====
+var quiz = null;
+var droppedIdx = null;
+var uploadedImgSrc = null;
+
+// ===== ページ切り替え =====
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+}
+
+// ===== ボタンイベント（addEventListener方式） =====
+document.getElementById('btnTeacher').addEventListener('click', function(){ showPage('pageTeacher'); });
+document.getElementById('btnStudent').addEventListener('click', function(){ showPage('pageStudent'); loadStudentQuiz(); });
+document.getElementById('backFromTeacher').addEventListener('click', function(){ showPage('pageTop'); });
+document.getElementById('backFromStudent').addEventListener('click', function(){ showPage('pageTop'); });
+document.getElementById('saveBtn').addEventListener('click', saveQuiz);
+document.getElementById('checkBtn').addEventListener('click', checkAnswer);
+document.getElementById('nextBtn').addEventListener('click', hideFeedback);
+
+// 画像プレビュー
+document.getElementById('imgInput').addEventListener('change', function(e){
+  var file = e.target.files[0];
+  if (!file) return;
+  var r = new FileReader();
+  r.onload = function(ev){
+    uploadedImgSrc = ev.target.result;
+    var img = document.getElementById('previewImg');
+    img.src = uploadedImgSrc;
+    img.style.display = 'block';
+    document.getElementById('uploadHint').style.display = 'none';
+  };
+  r.readAsDataURL(file);
+});
+
+// ===== 先生モード =====
+function saveQuiz() {
+  var choices = [];
+  for (var i = 0; i < 4; i++) {
+    var text = document.getElementById('c'+i).value.trim();
+    var emoji = document.getElementById('e'+i).value.trim();
+    if (!text) { alert('カード'+(i+1)+'のことばをいれてください'); return; }
+    choices.push({ text: text, emoji: emoji || '❓' });
+  }
+  var ansVal = document.querySelector('input[name=ans]:checked').value;
+  quiz = { imgSrc: uploadedImgSrc, choices: choices, answer: parseInt(ansVal) };
+  alert('もんだいをほぞんしました！\nせいとモードでクイズをしよう！');
+}
+
+// ===== 生徒モード =====
+function loadStudentQuiz() {
+  var noMsg = document.getElementById('noQuizMsg');
+  var content = document.getElementById('quizContent');
+  if (!quiz) {
+    noMsg.style.display = 'block';
+    content.style.display = 'none';
+    return;
+  }
+  noMsg.style.display = 'none';
+  content.style.display = 'flex';
+
+  // 場面イラスト
+  var si = document.getElementById('sceneImg');
+  var sn = document.getElementById('sceneNoImg');
+  if (quiz.imgSrc) { si.src = quiz.imgSrc; si.style.display = 'block'; sn.style.display = 'none'; }
+  else { si.style.display = 'none'; sn.style.display = 'block'; }
+
+  // ドロップゾーンリセット
+  droppedIdx = null;
+  var dz = document.getElementById('dropZone');
+  dz.innerHTML = '<span class="dropLabel">ここにカードをおとそう</span>';
+  dz.classList.remove('over');
+
+  // 選択肢生成（シャッフル）
+  var order = shuffled([0,1,2,3]);
+  var area = document.getElementById('choicesArea');
+  area.innerHTML = '';
+  order.forEach(function(i){
+    var c = quiz.choices[i];
+    var div = document.createElement('div');
+    div.className = 'qCard';
+    div.dataset.idx = i;
+    div.innerHTML = '<div class="emoji">'+c.emoji+'</div><div class="word">'+c.text+'</div>';
+    // マウスドラッグ
+    div.setAttribute('draggable', 'true');
+    div.addEventListener('dragstart', function(e){ e.dataTransfer.setData('text/plain', String(i)); div.classList.add('dragging'); });
+    div.addEventListener('dragend', function(){ div.classList.remove('dragging'); });
+    // タッチドラッグ
+    addTouchDrag(div, i);
+    area.appendChild(div);
+  });
+
+  // ドロップゾーン（マウス）
+  dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', function(){ dz.classList.remove('over'); });
+  dz.addEventListener('drop', function(e){
+    e.preventDefault();
+    dz.classList.remove('over');
+    var idx = parseInt(e.dataTransfer.getData('text/plain'));
+    placeCard(idx);
+  });
+}
+
+function placeCard(idx) {
+  droppedIdx = idx;
+  var c = quiz.choices[idx];
+  var dz = document.getElementById('dropZone');
+  dz.innerHTML = '<div class="droppedCard"><span style="font-size:1.8rem">'+c.emoji+'</span><span>'+c.text+'</span></div>';
+}
+
+function checkAnswer() {
+  if (droppedIdx === null) { alert('カードをドラッグしてこたえのばしょにおとしてね！'); return; }
+  var correct = (droppedIdx === quiz.answer);
+  var fb = document.getElementById('feedback');
+  document.getElementById('feedbackEmoji').textContent = correct ? '🎉' : '😢';
+  document.getElementById('feedbackMsg').textContent  = correct ? 'せいかい！すごい！' : 'ちがうよ、もういちどやってみよう！';
+  document.getElementById('feedbackBox').style.background = correct ? '#e8f5e9' : '#fce4ec';
+  fb.classList.add('show');
+}
+
+function hideFeedback() {
+  document.getElementById('feedback').classList.remove('show');
+  loadStudentQuiz();
+}
+
+// ===== タッチドラッグ（iPad対応） =====
+function addTouchDrag(el, idx) {
+  var clone = null;
+  var startX, startY, origLeft, origTop;
+
+  el.addEventListener('touchstart', function(e){
+    var t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    var rect = el.getBoundingClientRect();
+    origLeft = rect.left;
+    origTop  = rect.top;
+    clone = el.cloneNode(true);
+    clone.style.cssText = [
+      'position:fixed',
+      'z-index:999',
+      'opacity:0.8',
+      'pointer-events:none',
+      'width:' + el.offsetWidth + 'px',
+      'left:' + origLeft + 'px',
+      'top:'  + origTop  + 'px',
+      'margin:0'
+    ].join(';');
+    document.body.appendChild(clone);
+    el.classList.add('dragging');
+  }, { passive: true });
+
+  el.addEventListener('touchmove', function(e){
+    if (!clone) return;
+    e.preventDefault();
+    var t = e.touches[0];
+    var dx = t.clientX - startX;
+    var dy = t.clientY - startY;
+    clone.style.transform = 'translate('+dx+'px,'+dy+'px)';
+
+    var dz = document.getElementById('dropZone');
+    var r  = dz.getBoundingClientRect();
+    if (t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom) {
+      dz.classList.add('over');
+    } else {
+      dz.classList.remove('over');
+    }
+  }, { passive: false });
+
+  el.addEventListener('touchend', function(e){
+    if (!clone) return;
+    var t = e.changedTouches[0];
+    var dz = document.getElementById('dropZone');
+    var r  = dz.getBoundingClientRect();
+    if (t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom) {
+      placeCard(idx);
+    }
+    clone.remove();
+    clone = null;
+    el.classList.remove('dragging');
+    dz.classList.remove('over');
+  }, { passive: true });
+}
+
+// ===== ユーティリティ =====
+function shuffled(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+</script>
+</body>
+</html>
